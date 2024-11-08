@@ -8,6 +8,9 @@ public:
   // Constructor
   Animations(Adafruit_NeoPixel& strip);
 
+  // Must be incremented when more animations are added or removed.
+  static const int animation_count = 11;
+
   // Unified structure to hold animation state
   struct AnimationState {
     int pos = 0;     // Generic position
@@ -45,7 +48,7 @@ private:
 
   uint32_t currentColor;  // Add currentColor as a member variable
 
-  AnimationState animationStates[11];  // State for each animation
+  AnimationState animationStates[animation_count];  // State for each animation
   AnimationState state;
 
   uint8_t currentAnimationIndex = 0;  // Index of the current animation

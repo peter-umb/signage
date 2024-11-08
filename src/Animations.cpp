@@ -12,7 +12,7 @@ void Animations::setAnimation(uint8_t animationIndex) {
 }
 
 uint8_t Animations::getTotalAnimations() const {
-    return 11;
+    return animation_count;
 }
 
 // Run the current animation incrementally
