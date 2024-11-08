@@ -25,8 +25,8 @@ public:
       double dominantFrequency = getDominantFrequency();
 
       // Print the detected frequency (or process it further)
-      Serial.print("Detected Frequency: ");
-      Serial.println(dominantFrequency);
+      //Serial.print("Detected Frequency: ");
+      //Serial.println(dominantFrequency);
 
       return dominantFrequency;
     }
@@ -69,17 +69,19 @@ private:
     i2s_read(I2S_NUM_0, buffer, SAMPLES * sizeof(int16_t), &bytesRead, portMAX_DELAY);
 
     if (bytesRead < SAMPLES * sizeof(int16_t)) {
-      return false; // Not enough data
+        Serial.println("Not enough audio data read.");
+        return false; // Not enough data
     }
 
     // Copy audio samples to FFT input
     for (size_t i = 0; i < SAMPLES; i++) {
-      fftInput[i] = (double)buffer[i];
-      fftOutput[i] = 0; // Imaginary part is zero
+        fftInput[i] = (double)buffer[i];
+        fftOutput[i] = 0; // Imaginary part is zero
     }
 
+    //Serial.println("Audio data collected successfully."); // Debug message
     return true;
-  }
+}
 
   // Analyzes FFT output to find the dominant frequency
   double getDominantFrequency() {

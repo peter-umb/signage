@@ -8,7 +8,24 @@ public:
   // Constructor
   Animations(Adafruit_NeoPixel& strip) : strip(strip) {}
 
-  // Primary animations
+  // Unified structure to hold animation state
+  struct AnimationState {
+    int pos = 0;     // Generic position
+    int step = 0;    // Step counter
+    int cycle = 0;   // Cycle counter for multi-cycle animations
+  };
+
+  void setAnimationColor(uint32_t color) {
+    currentColor = color;
+  };
+
+  // Set the current animation and reset its state
+  void setAnimation(uint8_t animationIndex);
+
+  // Run the currently selected animation in incremental steps
+  void runCurrentAnimation(uint8_t wait);
+
+  // Animation functions (with incremental execution)
   void colorWipe(uint32_t color, uint8_t wait);
   void theaterChase(uint32_t color, uint8_t wait);
   void flash(uint32_t color, uint8_t flashes, uint8_t wait);
@@ -17,147 +34,232 @@ public:
   void twinkle(uint32_t color, uint8_t count, uint8_t wait);
   void runningLights(uint32_t color, uint8_t wait);
   void meteorRain(uint32_t color, uint8_t wait, uint8_t meteorSize, uint8_t meteorTrailDecay, bool randomDecay);
-  void bouncingBalls(uint8_t ballCount, uint8_t gravity, uint8_t dampening, int iterations);
+  void bouncingBalls(uint8_t ballCount, uint8_t gravity, uint8_t dampening);
   void fireFlicker(uint32_t baseColor, uint8_t flickerIntensity, uint8_t wait);
   void colorChase(uint32_t color, uint8_t wait);
 
 private:
   Adafruit_NeoPixel& strip;
 
+  uint32_t currentColor;  // Add currentColor as a member variable
+
+  AnimationState animationStates[10];  // State for each animation
+  AnimationState state;
+
+  uint8_t currentAnimationIndex = 0;  // Index of the current animation
+
+
   // Helper functions
-  void setPixelColorWithFade(int pixel, uint32_t color, uint8_t fadeAmount);
   uint32_t Wheel(byte WheelPos);
+  void setPixelColorWithFade(int pixel, uint32_t color, uint8_t fadeAmount);
   void setAllPixels(uint32_t color);
 };
 
-// Color Wipe Animation
+// Set the animation and reset state
+void Animations::setAnimation(uint8_t animationIndex) {
+  Serial.println("Animations::setAnimation animationIndex: " + String(animationIndex) );
+
+  currentAnimationIndex = animationIndex;
+  animationStates[animationIndex] = AnimationState();  // Reset state for the selected animation
+}
+
+// Run the current animation incrementally
+void Animations::runCurrentAnimation(uint8_t wait) {
+    Serial.print("Running animation index: ");
+    Serial.println(currentAnimationIndex);
+
+    switch (currentAnimationIndex) {
+        case 0:
+            colorWipe(currentColor, wait);
+            break;
+        case 1:
+            theaterChase(currentColor, wait);
+            break;
+        case 2:
+            flash(currentColor, 5, wait);
+            break;
+        case 3:
+            rainbowCycle(wait);
+            break;
+        case 4:
+            theaterChaseRainbow(wait);
+            break;
+        case 5:
+            twinkle(currentColor, 10, wait);
+            break;
+        case 6:
+            runningLights(currentColor, wait);
+            break;
+        case 7:
+            meteorRain(currentColor, wait, 3, 4, true);
+            break;
+        case 8:
+            bouncingBalls(3, 1, 2);
+            break;
+        case 9:
+            fireFlicker(currentColor, 10, wait);
+            break;
+        case 10:
+            colorChase(currentColor, wait);
+            break;
+        default:
+            twinkle(currentColor, 10, wait);  // Fallback animation
+            break;
+    }
+
+    Serial.print("Finished running animation index: ");
+    Serial.println(currentAnimationIndex);
+}
+
+// Non-blocking colorWipe
 void Animations::colorWipe(uint32_t color, uint8_t wait) {
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, color);
+  if (state.pos < strip.numPixels()) {
+    strip.setPixelColor(state.pos, color);
     strip.show();
     delay(wait);
+    state.pos++;
+  } else {
+    state.pos = 0;  // Reset to allow cycling
   }
 }
 
-// Theater Chase Animation
+// Non-blocking theaterChase
 void Animations::theaterChase(uint32_t color, uint8_t wait) {
-  for (uint16_t j = 0; j < 10; j++) { 
-    for (uint16_t q = 0; q < 3; q++) {
-      for (uint16_t i = 0; i < strip.numPixels(); i += 3) {
-        strip.setPixelColor(i + q, color);
-      }
-      strip.show();
-      delay(wait);
-      for (uint16_t i = 0; i < strip.numPixels(); i += 3) {
-        strip.setPixelColor(i + q, 0);
+  if (state.cycle < 10) {
+    for (int q = 0; q < 3; q++) {
+      for (int i = 0; i < strip.numPixels(); i += 3) {
+        strip.setPixelColor(i + q, state.step % 3 == q ? color : 0);
       }
     }
+    strip.show();
+    delay(wait);
+    state.step++;
+    if (state.step % 3 == 0) state.cycle++;
+  } else {
+    state.cycle = 0;
+    state.step = 0;
   }
 }
 
-// Flash Animation
+// Flash animation
 void Animations::flash(uint32_t color, uint8_t flashes, uint8_t wait) {
-  for (uint8_t i = 0; i < flashes; i++) {
-    setAllPixels(color);
+  if (state.cycle < flashes) {
+    setAllPixels(state.cycle % 2 == 0 ? color : 0);
     strip.show();
     delay(wait);
-    setAllPixels(0);
-    strip.show();
-    delay(wait);
+    state.cycle++;
+  } else {
+    state.cycle = 0;
   }
 }
 
-// Rainbow Cycle Animation
+// Non-blocking rainbowCycle
 void Animations::rainbowCycle(uint8_t wait) {
-  for (uint16_t j = 0; j < 256; j++) {
+  if (state.step < 256) {
     for (uint16_t i = 0; i < strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel((i * 256 / strip.numPixels() + j) & 255));
+      strip.setPixelColor(i, Wheel((i * 256 / strip.numPixels() + state.step) & 255));
     }
     strip.show();
     delay(wait);
+    state.step++;
+  } else {
+    state.step = 0;  // Reset to allow cycling
   }
 }
 
-// Theater Chase Rainbow Animation
+// Non-blocking theaterChaseRainbow
 void Animations::theaterChaseRainbow(uint8_t wait) {
-  for (uint16_t j = 0; j < 256; j++) {
-    for (uint16_t q = 0; q < 3; q++) {
-      for (uint16_t i = 0; i < strip.numPixels(); i += 3) {
-        strip.setPixelColor(i + q, Wheel((i + j) % 255));
-      }
-      strip.show();
-      delay(wait);
-      for (uint16_t i = 0; i < strip.numPixels(); i += 3) {
-        strip.setPixelColor(i + q, 0);
+  if (state.step < 256) {
+    for (int q = 0; q < 3; q++) {
+      for (int i = 0; i < strip.numPixels(); i += 3) {
+        strip.setPixelColor(i + q, Wheel((i + state.step) % 255));
       }
     }
+    strip.show();
+    delay(wait);
+    state.step++;
+  } else {
+    state.step = 0;  // Reset to allow cycling
   }
 }
 
 // Twinkle Animation
 void Animations::twinkle(uint32_t color, uint8_t count, uint8_t wait) {
-  for (uint8_t i = 0; i < count; i++) {
+  if (state.step < count) {
     int pixel = random(strip.numPixels());
     strip.setPixelColor(pixel, color);
     strip.show();
     delay(wait);
     strip.setPixelColor(pixel, 0);
+    state.step++;
+  } else {
+    state.step = 0;  // Reset to allow cycling
   }
 }
 
 // Running Lights Animation
 void Animations::runningLights(uint32_t color, uint8_t wait) {
-  for (int j = 0; j < 256 * 2; j++) {
+  if (state.step < 256 * 2) {
     for (int i = 0; i < strip.numPixels(); i++) {
-      strip.setPixelColor(i, ((sin(i + j) * 127 + 128) / 255) * color);
+      strip.setPixelColor(i, ((sin(i + state.step) * 127 + 128) / 255) * color);
     }
     strip.show();
     delay(wait);
+    state.step++;
+  } else {
+    state.step = 0;  // Reset for the next cycle
   }
 }
 
 // Meteor Rain Animation
 void Animations::meteorRain(uint32_t color, uint8_t wait, uint8_t meteorSize, uint8_t meteorTrailDecay, bool randomDecay) {
-  for (int i = 0; i < strip.numPixels() * 2; i++) {
+  if (state.step < strip.numPixels() * 2) {
     for (int j = 0; j < strip.numPixels(); j++) {
       if (!randomDecay || random(10) > 5) {
         setPixelColorWithFade(j, strip.getPixelColor(j), meteorTrailDecay);
       }
     }
     for (int j = 0; j < meteorSize; j++) {
-      if ((i - j) < strip.numPixels() && (i - j) >= 0) {
-        strip.setPixelColor(i - j, color);
+      if ((state.step - j) < strip.numPixels() && (state.step - j) >= 0) {
+        strip.setPixelColor(state.step - j, color);
       }
     }
     strip.show();
     delay(wait);
+    state.step++;
+  } else {
+    state.step = 0;  // Reset to allow cycling
   }
 }
 
 // Bouncing Balls Animation
-void Animations::bouncingBalls(uint8_t ballCount, uint8_t gravity, uint8_t dampening, int iterations) {
-  float height[ballCount];
-  float impactVelocityStart = sqrt(-2 * gravity);
-  float impactVelocity[ballCount];
-  
-  for (int i = 0; i < ballCount; i++) {
-    height[i] = 1;
-    impactVelocity[i] = impactVelocityStart;
+void Animations::bouncingBalls(uint8_t ballCount, uint8_t gravity, uint8_t dampening) {
+  static float height[10];
+  static float impactVelocity[10];
+  static bool initialized = false;
+
+  if (!initialized) {
+    float impactVelocityStart = sqrt(-2 * gravity);
+    for (int i = 0; i < ballCount; i++) {
+      height[i] = 1;
+      impactVelocity[i] = impactVelocityStart;
+    }
+    initialized = true;
   }
 
-  for (int t = 0; t < iterations; t++) {  // Run for a limited number of iterations
-    for (int i = 0; i < ballCount; i++) {
-      height[i] += impactVelocity[i];
-      impactVelocity[i] += gravity;
-      if (height[i] < 0) {
-        height[i] = 0;
-        impactVelocity[i] = impactVelocity[i] * -dampening;
-      }
-      strip.setPixelColor(i, strip.Color(255, 0, 0));  // Customize color as needed
+  if (state.step < ballCount) {
+    height[state.step] += impactVelocity[state.step];
+    impactVelocity[state.step] += gravity;
+    if (height[state.step] < 0) {
+      height[state.step] = 0;
+      impactVelocity[state.step] *= -dampening;
     }
-    strip.show();
-    delay(10);
+    strip.setPixelColor(state.step, strip.Color(255, 0, 0));  // Customize color as needed
+    state.step++;
+  } else {
+    state.step = 0;
   }
+  strip.show();
 }
 
 // Fire Flicker Animation
@@ -175,11 +277,14 @@ void Animations::fireFlicker(uint32_t baseColor, uint8_t flickerIntensity, uint8
 
 // Color Chase Animation
 void Animations::colorChase(uint32_t color, uint8_t wait) {
-  for (int i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, color);
+  if (state.pos < strip.numPixels()) {
+    strip.setPixelColor(state.pos, color);
     strip.show();
     delay(wait);
-    strip.setPixelColor(i, 0);
+    strip.setPixelColor(state.pos, 0);  // Turn off the current pixel before moving to the next
+    state.pos++;
+  } else {
+    state.pos = 0;  // Reset to allow cycling
   }
 }
 
@@ -194,7 +299,7 @@ void Animations::setPixelColorWithFade(int pixel, uint32_t color, uint8_t fadeAm
   strip.setPixelColor(pixel, strip.Color(r, g, b));
 }
 
-// Helper function for smooth color transitions in rainbow
+// Color Wheel function for rainbow effects
 uint32_t Animations::Wheel(byte WheelPos) {
   WheelPos = 255 - WheelPos;
   if (WheelPos < 85) {
@@ -208,7 +313,7 @@ uint32_t Animations::Wheel(byte WheelPos) {
   }
 }
 
-// Helper function to set all LEDs to a color
+// Set all pixels to a specific color
 void Animations::setAllPixels(uint32_t color) {
   for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, color);

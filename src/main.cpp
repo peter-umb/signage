@@ -9,7 +9,7 @@
 
 // Brightness levels array for cycling
 uint8_t brightnessLevels[] = {64, 128, 192, 255};  // 25%, 50%, 75%, 100%
-int brightnessIndex = 0;  // Start at the first brightness level
+int brightnessIndex = 1;  // Start at the first brightness level
 
 // Create instances of AudioProcessor and Animations
 AudioProcessor audioProcessor;
@@ -17,35 +17,17 @@ Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 Animations animations(strip);
 
 // Define variables to track the current color and animation index
-uint32_t currentColor = strip.Color(255, 0, 0);  // Initial color (red)
+uint32_t currentColor = strip.Color(255, 0, 255);
 int animationIndex = 0;
 
 volatile bool buttonPressed = false;  // Flag to indicate button press
 
 bool test = true;
 
-// Pointer to the currently selected animation function
-std::function<void(uint8_t)> currentAnimation = nullptr;
-
 // ISR for the BOOT button
 void IRAM_ATTR handleButtonPress() {
   buttonPressed = true;  // Set flag to true when button is pressed
 }
-
-// Function pointers for cycling through animations
-std::function<void(uint8_t)> cycleAnimations[] = {
-  [&](uint8_t wait) { animations.colorWipe(currentColor, wait); },
-  [&](uint8_t wait) { animations.theaterChase(currentColor, wait); },
-  [&](uint8_t wait) { animations.flash(currentColor, 5, wait); },
-  [&](uint8_t wait) { animations.rainbowCycle(wait); },
-  [&](uint8_t wait) { animations.theaterChaseRainbow(wait); },
-  [&](uint8_t wait) { animations.twinkle(currentColor, 10, wait); },
-  [&](uint8_t wait) { animations.runningLights(currentColor, wait); },
-  [&](uint8_t wait) { animations.meteorRain(currentColor, wait, 3, 4, true); },
-  [&](uint8_t wait) { animations.bouncingBalls(3, 1, 2, 10); },
-  [&](uint8_t wait) { animations.fireFlicker(currentColor, 1, wait); },
-  [&](uint8_t wait) { animations.colorChase(currentColor, wait); }
-};
 
 // Function to cycle through brightness levels
 void cycleBrightness() {
@@ -62,27 +44,45 @@ void wipeStrip() {
   strip.show();  // Apply changes to turn off all LEDs
 }
 
-// Function to cycle animations and set the currentAnimation pointer
+// Function to cycle animations and set the animation in Animations class
 void cycleAnimation() {
   wipeStrip();  // Clear the strip before changing animation
-  currentAnimation = cycleAnimations[animationIndex];
-  animationIndex = (animationIndex + 1) % (sizeof(cycleAnimations) / sizeof(cycleAnimations[0]));
+
+  // Set new animation based on the current animationIndex
+  Serial.print("cycleAnimation - Current animationIndex: ");
+  Serial.println(animationIndex);
+
+  animations.setAnimation(animationIndex);
+
+  // Increment and wrap animationIndex for next cycle
+  animationIndex = (animationIndex + 1) % 11;  // Assuming 11 animations
+  Serial.print("cycleAnimation - Next animationIndex: ");
+  Serial.println(animationIndex);
 }
 
 // Define tone ranges and map specific functions to each
 struct ToneRange {
   double minFreq;
   double maxFreq;
-  std::function<void(uint8_t)> animation;
+  std::function<void()> action;
 };
+
+void setCurrentColor(uint8_t _r, uint8_t _g, uint8_t _b) {
+  currentColor = strip.Color(_r, _g, _b);
+  animations.setAnimationColor(currentColor);
+}
+
+void setRandomColor() {
+  setCurrentColor(random(0, 255), random(0, 255), random(0, 255));
+}
 
 // Initialize tone mappings
 ToneRange toneMappings[] = {
-  {200.0, 300.0, [&](uint8_t wait) { wipeStrip(); currentAnimation = [&](uint8_t wait) { animations.rainbowCycle(wait); }; }},
-  {300.0, 400.0, [&](uint8_t wait) { wipeStrip(); currentAnimation = [&](uint8_t wait) { animations.theaterChaseRainbow(wait); }; }},
-  {400.0, 500.0, [&](uint8_t wait) { wipeStrip(); cycleAnimation(); }},
-  {500.0, 600.0, [&](uint8_t wait) { currentColor = strip.Color(random(0, 255), random(0, 255), random(0, 255)); }},
-  {600.0, 700.0, [&](uint8_t) { cycleBrightness(); }}
+  {200.0, 300.0, [&]() { wipeStrip(); animations.setAnimation(3); }},            // RainbowCycle animation
+  {300.0, 400.0, [&]() { wipeStrip(); animations.setAnimation(4); }},            // TheaterChaseRainbow animation
+  {400.0, 500.0, [&]() { wipeStrip(); cycleAnimation(); }},                      // Cycle through animations
+  {500.0, 600.0, [&]() { setRandomColor(); }},  // Change color
+  {600.0, 700.0, [&]() { cycleBrightness(); }}                                  // Adjust brightness level
 };
 
 void setup() {
@@ -90,6 +90,8 @@ void setup() {
   strip.begin();
   strip.setBrightness(brightnessLevels[brightnessIndex]);  // Set initial brightness level
   strip.show();                     // Initialize all pixels to 'off'
+  Serial.println("Setup complete. LEDs initialized.");  // Debug: Confirm setup
+
   audioProcessor.begin();           // Initialize audio processing
 
   if (test == true) {
@@ -102,6 +104,7 @@ void setup() {
 void testButton() {
   if (buttonPressed) {
     buttonPressed = false;  // Reset flag
+    setCurrentColor(random(0, 255), random(0, 255), random(0, 255));
     cycleAnimation();       // Update animation using the button
   }
 }
@@ -111,29 +114,27 @@ void checkForTones() {
   double detectedFrequency = audioProcessor.listenForTones();
   bool toneDetected = false;
 
-  // Find the appropriate animation for the detected frequency
+  // Find the appropriate action for the detected frequency
   for (ToneRange &tone : toneMappings) {
     if (detectedFrequency >= tone.minFreq && detectedFrequency <= tone.maxFreq) {
-      tone.animation(20);  // Set the corresponding animation
+      tone.action();  // Execute the action (e.g., change animation)
       toneDetected = true;
       break;
     }
   }
 
-  // Optionally, handle a long pause with no tone to set a fallback animation
-  if (!toneDetected && currentAnimation == nullptr) {
-    currentAnimation = [&](uint8_t wait) { animations.twinkle(strip.Color(160, 32, 240), 10, 100); };
-  }
+  // Fallback animation if no tone is detected
+  // if (!toneDetected) {
+  //   animations.setAnimation(5);  // Default to twinkle animation
+  // }
 }
 
 void loop() {
-  testButton();
-  checkForTones();
+  testButton();          // Check for button press to change animation
+  checkForTones();       // Check for tone to adjust animation
 
-  // Continuously run the current animation
-  if (currentAnimation != nullptr) {
-    currentAnimation(20);
-  }
+  // Continuously run the current animation in incremental steps
+  animations.runCurrentAnimation(20);
 
-  delay(100);  // Adjust delay as needed for responsiveness
+  delay(150);  // Adjust delay as needed for responsiveness
 }
