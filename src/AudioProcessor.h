@@ -10,7 +10,7 @@
 class AudioProcessor {
 public:
   // Constructor
-  AudioProcessor();
+  AudioProcessor(boolean debug);
 
   // Initializes the I2S interface for audio input
   void begin();
@@ -19,6 +19,8 @@ public:
   double listenForTones();
 
 private:
+  boolean debug;
+
   double fftInput[SAMPLES];    // Real part of FFT input
   double fftOutput[SAMPLES];   // Imaginary part of FFT output
   ArduinoFFT<double> fft;      // FFT object with template type double

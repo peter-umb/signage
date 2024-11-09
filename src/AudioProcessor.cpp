@@ -1,7 +1,7 @@
 #include "AudioProcessor.h"
 
 // Constructor with correct ArduinoFFT initialization
-AudioProcessor::AudioProcessor() : fft(fftInput, fftOutput, SAMPLES, SAMPLE_RATE) {}
+AudioProcessor::AudioProcessor(boolean debug) : fft(fftInput, fftOutput, SAMPLES, SAMPLE_RATE), debug(debug) {}
 
 // Initializes the I2S interface for audio input
 void AudioProcessor::begin() {
@@ -41,8 +41,19 @@ void AudioProcessor::setupI2S() {
         .data_in_num = 32     // Data Input
     };
 
-    i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
+    esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
+    if (err != ESP_OK) {
+        if (debug) {
+            Serial.println("Failed to install I2S driver.");
+        }
+        return;
+    }
+
     i2s_set_pin(I2S_NUM_0, &pinConfig);
+
+    if (debug) {
+        Serial.println("I2S driver installed and configured.");
+    }
 }
 
 // Reads audio data from the microphone and fills the FFT buffer
@@ -52,14 +63,26 @@ bool AudioProcessor::readAudioData() {
     i2s_read(I2S_NUM_0, buffer, SAMPLES * sizeof(int16_t), &bytesRead, portMAX_DELAY);
 
     if (bytesRead < SAMPLES * sizeof(int16_t)) {
-        Serial.println("Not enough audio data read.");
+        if (debug) {
+            Serial.print("Not enough audio data read. Bytes read: ");
+            Serial.println(bytesRead);
+        }
         return false; // Not enough data
+    }
+
+    if (debug) {
+        Serial.print("Bytes read: ");
+        Serial.println(bytesRead);
     }
 
     // Copy audio samples to FFT input
     for (size_t i = 0; i < SAMPLES; i++) {
         fftInput[i] = (double)buffer[i];
         fftOutput[i] = 0; // Imaginary part is zero
+    }
+
+    if (debug) {
+        Serial.println("Audio data successfully read into FFT buffer.");
     }
 
     return true;
@@ -71,7 +94,8 @@ double AudioProcessor::getDominantFrequency() {
     double maxMagnitude = 0;
 
     for (int i = 1; i < SAMPLES / 2; i++) {  // Only need to check the first half
-        double magnitude = fftOutput[i];
+        double magnitude = fftInput[i]; // Since fftInput now holds magnitudes after complexToMagnitude
+        // double magnitude = fftOutput[i];
         if (magnitude > maxMagnitude) {
             maxMagnitude = magnitude;
             peakFrequency = i * (SAMPLE_RATE / SAMPLES);

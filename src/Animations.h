@@ -2,14 +2,17 @@
 #define ANIMATIONS_H
 
 #include <Adafruit_NeoPixel.h>
+#include <vector>
+#include "HelperFunctions.h"
+
 
 class Animations {
 public:
   // Constructor
-  Animations(Adafruit_NeoPixel& strip);
+  Animations(Adafruit_NeoPixel& strip, HelperFunctions& helperFunctions, boolean debug);
 
   // Must be incremented when more animations are added or removed.
-  static const int animation_count = 11;
+  static const int animation_count = 20;
 
   // Unified structure to hold animation state
   struct AnimationState {
@@ -18,9 +21,7 @@ public:
     int cycle = 0;   // Cycle counter for multi-cycle animations
   };
 
-  void setAnimationColor(uint32_t color) {
-    currentColor = color;
-  };
+  void setAnimationColor(uint32_t color);
 
   // Set the current animation and reset its state
   void setAnimation(uint8_t animationIndex);
@@ -40,24 +41,37 @@ public:
   void bouncingBalls(uint8_t ballCount, float gravity, float dampening);
   void fireFlicker(uint32_t baseColor, uint8_t flickerIntensity, uint8_t wait);
   void colorChase(uint32_t color, uint8_t wait);
-  uint8_t getTotalAnimations() const;  // Method to return the total number of animations
-  uint32_t Wheel(byte WheelPos);
-
-private:
-  Adafruit_NeoPixel& strip;
-
-  uint32_t currentColor;  // Add currentColor as a member variable
-
-  AnimationState animationStates[animation_count];  // State for each animation
-  AnimationState state;
-
-  uint8_t currentAnimationIndex = 0;  // Index of the current animation
-
+  void randomFadeAnimation(uint8_t wait);
+  void fireFlicker(uint8_t wait);
+  void wave(uint8_t wait);
+  void meteorShower(uint32_t color, uint8_t meteorSize, uint8_t trailDecay, uint8_t wait);
+  void sparkle(uint32_t color, uint8_t wait);
+  void fireflies(uint8_t wait);
+  void gradientSweep(uint8_t wait);
+  void colorWaves(uint8_t wait);
+  void randomSparkles(uint8_t wait);
 
   // Helper functions
-  void setPixelColorWithFade(int pixel, uint32_t color, uint8_t fadeAmount);
-  void setAllPixels(uint32_t color);
-};
+  uint8_t getTotalAnimations() const;  // Method to return the total number of animations
+  void setRandomColor();
+  void cycleAnimation();
 
+private:
+  boolean debug;
+  Adafruit_NeoPixel& strip;
+  HelperFunctions& helperFunctions;
+
+  // Animation state
+  uint32_t currentColor;  // Add currentColor as a member variable
+  AnimationState animationStates[animation_count];  // State for each animation
+  AnimationState state;
+  uint8_t currentAnimationIndex = 0;  // Index of the current animation
+  int animationIndex = 0;
+
+  // Helper functions
+  void setCurrentColor(uint8_t red, uint8_t green, uint8_t blue);
+  void setCurrentColor(uint32_t color);
+
+};
 
 #endif  // ANIMATIONS_H
