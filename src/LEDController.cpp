@@ -30,15 +30,6 @@ void LEDController::loop() {
   animations.runCurrentAnimation(20);
 }
 
-// Unused, maybe useful later?
-// void LEDController::setCurrentColor(uint8_t red, uint8_t green, uint8_t blue) {
-//   animations.setAnimationColor(strip.Color(red, green, blue));
-// }
-
-// void LEDController::setCurrentColor(uint32_t color) {
-//   animations.setAnimationColor(color);
-// }
-
 void LEDController::checkForTones() {
   double detectedFrequency = audioProcessor.listenForTones();
   for (const ToneRange& tone : toneMappings) {

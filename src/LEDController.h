@@ -5,7 +5,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <vector>  // Include vector header
 #include "AudioProcessor.h"
-#include "Animations.h"
+#include "Animations/Animations.h"
 #include "HelperFunctions.h"
 
 class LEDController {
@@ -38,10 +38,6 @@ private:
   std::vector<ToneRange> toneMappings;  // Declare toneMappings here
 
   // Helper functions
-  void cycleBrightness();
-  // void setCurrentColor(uint8_t red, uint8_t green, uint8_t blue);
-  // void setCurrentColor(uint32_t color);
-  void cycleAnimation();
   void checkForTones();
   void handleButtonPress();
 };
