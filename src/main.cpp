@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include "AudioProcessor.h"
+#include "Audio/AudioProcessor.h"
 #include "Animations/Animations.h"
 #include "LEDController.h"
 #include "HelperFunctions.h"

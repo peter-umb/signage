@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <vector>  // Include vector header
-#include "AudioProcessor.h"
+#include "Audio/AudioProcessor.h"
 #include "Animations/Animations.h"
 #include "HelperFunctions.h"
 
