@@ -1,4 +1,4 @@
-#include "HelperFunctions.h"
+#include "Animations/HelperFunctions.h"
 
 HelperFunctions::HelperFunctions(Adafruit_NeoPixel& ledStrip, boolean debug) : strip(ledStrip), debug(debug) {}
 

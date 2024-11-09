@@ -6,7 +6,7 @@
 #include <vector>  // Include vector header
 #include "Audio/AudioProcessor.h"
 #include "Animations/Animations.h"
-#include "HelperFunctions.h"
+#include "Animations/HelperFunctions.h"
 
 class LEDController {
 public:

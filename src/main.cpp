@@ -3,7 +3,7 @@
 #include "Audio/AudioProcessor.h"
 #include "Animations/Animations.h"
 #include "LEDController.h"
-#include "HelperFunctions.h"
+#include "Animations/HelperFunctions.h"
 #include "Config.h"
 
 // Enable for debug serial output
