@@ -10,12 +10,12 @@ class Animations;
 namespace AdvancedAnimations {
     void rainbowCycle(Animations& animations, uint8_t wait);
     void theaterChaseRainbow(Animations& animations, uint8_t wait);
-    void meteorRain(Animations& animations, uint32_t color, uint8_t wait, uint8_t meteorSize, uint8_t meteorTrailDecay, bool randomDecay);
-    void bouncingBalls(Animations& animations, uint8_t ballCount, float gravity, float dampening);
-    void fireFlicker(Animations& animations, uint32_t baseColor, uint8_t flickerIntensity, uint8_t wait);
+    void meteorRain(Animations& animations, uint8_t wait);
+    void bouncingBalls(Animations& animations, uint8_t wait);
     void fireFlicker(Animations& animations, uint8_t wait);
+    void fireFlicker2(Animations& animations, uint8_t wait);
     void randomFadeAnimation(Animations& animations, uint8_t wait);
-    void meteorShower(Animations& animations, uint32_t color, uint8_t meteorSize, uint8_t trailDecay, uint8_t wait);
+    void meteorShower(Animations& animations, uint8_t wait);
     void fireflies(Animations& animations, uint8_t wait);
     void colorWaves(Animations& animations, uint8_t wait);
     void randomSparkles(Animations& animations, uint8_t wait);

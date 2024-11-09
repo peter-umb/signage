@@ -4,10 +4,7 @@
 #include "Animations/Animations.h"
 #include "LEDController.h"
 #include "HelperFunctions.h"
-
-// Define pin and number of LEDs
-#define LED_PIN     18     // GPIO 18 for data
-#define NUM_LEDS    17     // Number of WS2812B LEDs in the strip
+#include "Config.h"
 
 // Enable for debug serial output
 boolean debug = true;

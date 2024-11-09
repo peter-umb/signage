@@ -17,7 +17,6 @@ public:
 
 private:
   boolean debug;
-  int total_animations;
   static LEDController* instance;  // Static pointer to the active instance
   static void IRAM_ATTR onButtonPress();  // Interrupt handler
   Adafruit_NeoPixel& strip;

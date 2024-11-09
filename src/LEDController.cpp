@@ -17,11 +17,13 @@ LEDController::LEDController(Adafruit_NeoPixel& strip, Animations& animations, A
 void LEDController::setup() {
   helperFunctions.setupLEDStrip();
   audioProcessor.begin();
-  total_animations = animations.getTotalAnimations();
+  animations.setAnimation(0);
 
-  // Attach the interrupt to a static function
-  pinMode(0, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(0), LEDController::onButtonPress, FALLING);
+  if (debug) {
+    // Attach the interrupt to a static function
+    pinMode(0, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(0), LEDController::onButtonPress, FALLING);
+  }
 }
 
 void LEDController::loop() {

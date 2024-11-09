@@ -6,28 +6,29 @@ namespace AdvancedAnimations
     // Non-blocking rainbowCycle
     void rainbowCycle(Animations& animations, uint8_t wait)
     {
-        Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
-        HelperFunctions &helperFunctions = animations.helperFunctions;
- 
+        auto &strip = animations.strip;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
+        auto &helperFunctions = animations.helperFunctions;
+
         for (uint16_t i = 0; i < strip.numPixels(); i++)
         {
-            // Apply modulo 256 directly in the color calculation to wrap smoothly
             strip.setPixelColor(i, helperFunctions.Wheel((i * 256 / strip.numPixels() + state.step) % 256));
         }
         strip.show();
-        delay(wait);
 
-        // Increment state.step continuously without resetting
-        state.step++;
+        // Update timing for non-blocking delay
+        if (millis() - state.lastUpdate > wait) {
+            state.step++;
+            state.lastUpdate = millis();
+        }
     }
 
-    // Non-blocking theaterChaseRainbow
     void theaterChaseRainbow(Animations& animations, uint8_t wait)
     {
-        Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
-        HelperFunctions &helperFunctions = animations.helperFunctions;
+        auto &strip = animations.strip;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
+        auto &helperFunctions = animations.helperFunctions;
+
         if (state.step < 256)
         {
             for (int q = 0; q < 3; q++)
@@ -38,76 +39,72 @@ namespace AdvancedAnimations
                 }
             }
             strip.show();
-            delay(wait);
-            state.step = (state.step + 1) % 256;
+
+            if (millis() - state.lastUpdate > wait) {
+                state.step = (state.step + 1) % 256;
+                state.lastUpdate = millis();
+            }
         }
         else
         {
-            state.step = 0; // Reset to allow cycling
-        }
-    }
-
-    // Meteor Rain Animation
-    void meteorRain(Animations& animations, uint32_t color, uint8_t wait, uint8_t meteorSize, uint8_t meteorTrailDecay, bool randomDecay)
-    {
-        Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
-        HelperFunctions &helperFunctions = animations.helperFunctions;
-        if (state.step < strip.numPixels() * 2)
-        {
-            // Apply fade to all LEDs to create trailing effect
-            for (int j = 0; j < strip.numPixels(); j++)
-            {
-                if (!randomDecay || random(10) > 5)
-                { // Randomized decay for a "sparkling" effect
-                    uint32_t pixelColor = strip.getPixelColor(j);
-                    helperFunctions.setPixelColorWithFade(j, pixelColor, meteorTrailDecay);
-                }
-            }
-
-            // Light up the meteor's "head" and trail
-            for (int j = 0; j < meteorSize; j++)
-            {
-                int pixelPos = state.step - j;
-                if (pixelPos < strip.numPixels() && pixelPos >= 0)
-                {                                         // Ensure within strip bounds
-                    strip.setPixelColor(pixelPos, color); // Set color for the meteor
-                }
-            }
-
-            // Display changes and move the meteor head forward
-            strip.show();
-            delay(wait);
-            state.step++;
-        }
-        else
-        {
-            // Reset to allow cycling
             state.step = 0;
         }
     }
 
-    // Bouncing Balls Animation
-    void bouncingBalls(Animations& animations, uint8_t ballCount, float gravity, float dampening)
+    void meteorRain(Animations& animations, uint8_t wait)
     {
-        Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
-        HelperFunctions &helperFunctions = animations.helperFunctions;
+        auto &strip = animations.strip;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
+        auto &helperFunctions = animations.helperFunctions;
+        uint32_t &color = animations.currentColor;
+
+        const uint8_t meteorSize = 3;
+        const uint8_t meteorTrailDecay = 4;
+        const bool randomDecay = true;
+
+        for (int j = 0; j < strip.numPixels(); j++)
+        {
+            if (!randomDecay || random(10) > 5)
+            {
+                uint32_t pixelColor = strip.getPixelColor(j);
+                helperFunctions.setPixelColorWithFade(j, pixelColor, meteorTrailDecay);
+            }
+        }
+
+        for (int j = 0; j < meteorSize; j++)
+        {
+            int pixelPos = state.step - j;
+            if (pixelPos >= 0 && pixelPos < strip.numPixels())
+            {
+                strip.setPixelColor(pixelPos, color);
+            }
+        }
+        strip.show();
+
+        if (millis() - state.lastUpdate > wait) {
+            state.step = (state.step + 1) % (strip.numPixels() * 2);
+            state.lastUpdate = millis();
+        }
+    }
+
+    void bouncingBalls(Animations& animations, uint8_t wait)
+    {
+        auto &strip = animations.strip;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
+        const uint8_t ballCount = 5;
+        const float gravity = 0.4;
+        const float dampening = 0.6;
         static float height[10];
         static float impactVelocity[10];
         static bool initialized = false;
 
         if (!initialized)
         {
-            float impactVelocityStart = sqrt(2.0 * abs(gravity)); // Ensure positive value here
+            float impactVelocityStart = sqrt(2.0 * abs(gravity));
             for (int i = 0; i < ballCount; i++)
             {
-                height[i] = 16.0;                        // Set initial height
-                impactVelocity[i] = impactVelocityStart; // Use calculated starting velocity
-                Serial.print("Initial height: ");
-                Serial.print(height[i]);
-                Serial.print(", Initial velocity: ");
-                Serial.println(impactVelocity[i]);
+                height[i] = 16.0;
+                impactVelocity[i] = impactVelocityStart;
             }
             initialized = true;
         }
@@ -120,22 +117,98 @@ namespace AdvancedAnimations
             if (height[i] < 0)
             {
                 height[i] = 0;
-                impactVelocity[i] *= -dampening; // Reverse direction with dampening
+                impactVelocity[i] *= -dampening;
             }
 
-            // Set color for each ball
             strip.setPixelColor(i, strip.Color(255, 0, 0)); // Customize color as needed
         }
         strip.show();
     }
 
-    // Fire Flicker Animation
-    void fireFlicker(Animations& animations, uint32_t baseColor, uint8_t flickerIntensity, uint8_t wait)
+    void randomFadeAnimation(Animations& animations, uint8_t wait)
+    {
+        auto &strip = animations.strip;
+        auto &helperFunctions = animations.helperFunctions;
+        struct Color
+        {
+            uint32_t color;
+            uint8_t ledStart;
+            uint8_t ledCount;
+            uint16_t fadeDuration;
+            uint16_t holdDuration;
+            int fadeDirection;
+            float brightness;
+        };
+
+        static std::vector<Color> activeColors;
+        const int maxColors = 5;
+
+        if (random(1, 5) == 1 || activeColors.size() < maxColors)
+        {
+            Color newColor;
+            newColor.color = strip.Color(random(0, 256), random(0, 256), random(0, 256));
+            newColor.ledStart = random(0, strip.numPixels());
+            newColor.ledCount = random(1, 5);
+            newColor.fadeDuration = random(500, 3000);
+            newColor.holdDuration = random(500, 3000);
+            newColor.fadeDirection = 1;
+            newColor.brightness = 0.0;
+            activeColors.push_back(newColor);
+        }
+
+        for (auto it = activeColors.begin(); it != activeColors.end();)
+        {
+            Color &color = *it;
+            uint32_t blendedColor = strip.Color(
+                static_cast<uint8_t>((color.color >> 16 & 0xFF) * color.brightness),
+                static_cast<uint8_t>((color.color >> 8 & 0xFF) * color.brightness),
+                static_cast<uint8_t>((color.color & 0xFF) * color.brightness));
+
+            for (uint8_t i = color.ledStart; i < color.ledStart + color.ledCount && i < strip.numPixels(); i++)
+            {
+                uint32_t existingColor = strip.getPixelColor(i);
+                uint8_t r = helperFunctions.min(255, (existingColor >> 16 & 0xFF) + (blendedColor >> 16 & 0xFF));
+                uint8_t g = helperFunctions.min(255, (existingColor >> 8 & 0xFF) + (blendedColor >> 8 & 0xFF));
+                uint8_t b = helperFunctions.min(255, (existingColor & 0xFF) + (blendedColor & 0xFF));
+                strip.setPixelColor(i, strip.Color(r, g, b));
+            }
+
+            float fadeStep = (float)wait / color.fadeDuration;
+            color.brightness += fadeStep * color.fadeDirection;
+
+            if (color.brightness >= 1.0)
+            {
+                color.brightness = 1.0;
+                color.fadeDirection = -1;
+                color.holdDuration -= wait;
+            }
+            else if (color.brightness <= 0.0)
+            {
+                color.brightness = 0.0;
+                it = activeColors.erase(it);
+                continue;
+            }
+            else if (color.fadeDirection == -1 && color.holdDuration <= 0)
+            {
+                color.fadeDirection = -1;
+            }
+
+            ++it;
+        }
+
+        strip.show();
+    }
+    
+    void fireFlicker(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
-        for (int i = 0; i < strip.numPixels(); i++)
+        uint32_t &baseColor = animations.currentColor;
+        uint8_t flickerIntensity = 4;
+        const int numLeds = animations.strip.numPixels();
+     
+        for (int i = 0; i < numLeds; i++)
         {
             int flicker = random(-flickerIntensity, flickerIntensity);
             uint8_t r = constrain((baseColor >> 16 & 0xFF) + flicker, 0, 255);
@@ -147,18 +220,20 @@ namespace AdvancedAnimations
         delay(wait);
     }
 
-    void fireFlicker(Animations& animations, uint8_t wait)
+    void fireFlicker2(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
         // Define base colors for fire effect
         const uint8_t baseRed = 255;
         const uint8_t baseGreen = 100;
         const uint8_t baseBlue = 0;
 
+        const int numLeds = animations.strip.numPixels();
+
         // Iterate over each LED and apply random flicker
-        for (int i = 0; i < strip.numPixels(); i++)
+        for (int i = 0; i < numLeds; i++)
         {
             // Generate a random flicker intensity
             int flicker = random(-50, 50); // Random value to simulate flicker
@@ -176,99 +251,22 @@ namespace AdvancedAnimations
         delay(wait); // Control flicker speed
     }
 
-    void randomFadeAnimation(Animations& animations, uint8_t wait)
+    void meteorShower(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
-        struct Color
-        {
-            uint32_t color;
-            uint8_t ledStart;
-            uint8_t ledCount;
-            uint16_t fadeDuration; // Duration for fade-in/out
-            uint16_t holdDuration; // Duration to hold the color
-            int fadeDirection;     // 1 for fade-in, -1 for fade-out
-            float brightness;      // Current brightness level (0.0 to 1.0)
-        };
+        uint32_t &color = animations.currentColor;
 
-        static std::vector<Color> activeColors;
-
-        // Spawn a new color if we have fewer than 5 colors or randomly
-        if (random(1, 5) == 1 || activeColors.size() < 5)
-        {
-            Color newColor;
-            newColor.color = strip.Color(random(0, 256), random(0, 256), random(0, 256));
-            newColor.ledStart = random(0, strip.numPixels());
-            newColor.ledCount = random(1, 5);          // Between 1 and 5 LEDs
-            newColor.fadeDuration = random(500, 3000); // Fade in/out time in milliseconds
-            newColor.holdDuration = random(500, 3000); // Hold time in milliseconds
-            newColor.fadeDirection = 1;                // Start with fade-in
-            newColor.brightness = 0.0;
-            activeColors.push_back(newColor);
-        }
-
-        // Process each color
-        for (auto it = activeColors.begin(); it != activeColors.end();)
-        {
-            Color &color = *it;
-
-            // Calculate blended color based on brightness
-            uint32_t blendedColor = strip.Color(
-                static_cast<uint8_t>((color.color >> 16 & 0xFF) * color.brightness),
-                static_cast<uint8_t>((color.color >> 8 & 0xFF) * color.brightness),
-                static_cast<uint8_t>((color.color & 0xFF) * color.brightness));
-
-            // Apply blended color to specified LEDs
-            for (uint8_t i = color.ledStart; i < color.ledStart + color.ledCount && i < strip.numPixels(); i++)
-            {
-                uint32_t existingColor = strip.getPixelColor(i);
-
-                uint8_t r = helperFunctions.min(255, (existingColor >> 16 & 0xFF) + (blendedColor >> 16 & 0xFF));
-                uint8_t g = helperFunctions.min(255, (existingColor >> 8 & 0xFF) + (blendedColor >> 8 & 0xFF));
-                uint8_t b = helperFunctions.min(255, (existingColor & 0xFF) + (blendedColor & 0xFF));
-
-                strip.setPixelColor(i, strip.Color(r, g, b));
-            }
-
-            // Update brightness
-            float fadeStep = (float)wait / color.fadeDuration;
-            color.brightness += fadeStep * color.fadeDirection;
-
-            // Check if the color needs to start fading out or be removed
-            if (color.brightness >= 1.0)
-            { // Full brightness reached
-                color.brightness = 1.0;
-                color.fadeDirection = -1; // Start fade-out
-                color.holdDuration -= wait;
-            }
-            else if (color.brightness <= 0.0)
-            { // Faded out completely
-                color.brightness = 0.0;
-                it = activeColors.erase(it); // Remove faded-out color
-                continue;
-            }
-            else if (color.fadeDirection == -1 && color.holdDuration <= 0)
-            {
-                color.fadeDirection = -1; // Continue fade-out after holding
-            }
-
-            ++it;
-        }
-
-        strip.show();
-        delay(wait);
-    }
-
-    void meteorShower(Animations& animations, uint32_t color, uint8_t meteorSize, uint8_t trailDecay, uint8_t wait)
-    {
-        Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
-        HelperFunctions &helperFunctions = animations.helperFunctions;
-        for (int j = strip.numPixels() + meteorSize; j >= 0; j--)
+        uint8_t meteorSize = 3;
+        uint8_t trailDecay = 5;
+    
+        const int numLeds = animations.strip.numPixels();
+      
+        for (int j = numLeds + meteorSize; j >= 0; j--)
         {
             // Fade all LEDs
-            for (int k = 0; k < strip.numPixels(); k++)
+            for (int k = 0; k < numLeds; k++)
             {
                 uint32_t currentColor = strip.getPixelColor(k);
                 strip.setPixelColor(k, helperFunctions.dimColor(currentColor, trailDecay));
@@ -277,7 +275,7 @@ namespace AdvancedAnimations
             // Draw meteor
             for (int k = 0; k < meteorSize; k++)
             {
-                if ((j - k >= 0) && (j - k < strip.numPixels()))
+                if ((j - k >= 0) && (j - k < numLeds))
                 {
                     strip.setPixelColor(j - k, color);
                 }
@@ -291,7 +289,7 @@ namespace AdvancedAnimations
     void fireflies(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
         struct Color
         {
@@ -308,7 +306,7 @@ namespace AdvancedAnimations
         { // Adjust probability as needed
             Color newFirefly;
             newFirefly.color = strip.Color(random(100, 255), random(100, 255), random(0, 50)); // Warm yellowish colors
-            newFirefly.led = random(0, strip.numPixels());
+            newFirefly.led = random(0, animations.strip.numPixels());
             newFirefly.brightness = 0.0;
             newFirefly.fadeDirection = 1;
             activeFireflies.push_back(newFirefly);
@@ -354,15 +352,17 @@ namespace AdvancedAnimations
     void colorWaves(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
         static float position = 0.0;
         float speed = 0.1; // Adjust for faster or slower waves
         position += speed;
 
-        for (uint16_t i = 0; i < strip.numPixels(); i++)
+        const int numLeds = animations.strip.numPixels();
+
+        for (uint16_t i = 0; i < numLeds; i++)
         {
-            float wavePosition = (position + (float)i / strip.numPixels() * 10.0); // Spread out the waves
+            float wavePosition = (position + (float)i / numLeds * 10.0); // Spread out the waves
             uint8_t red = (sin(wavePosition) + 1.0) * 127.5;
             uint8_t green = (sin(wavePosition + 2.0) + 1.0) * 127.5;
             uint8_t blue = (sin(wavePosition + 4.0) + 1.0) * 127.5;
@@ -376,7 +376,7 @@ namespace AdvancedAnimations
     void randomSparkles(Animations& animations, uint8_t wait)
     {
         Adafruit_NeoPixel &strip = animations.strip;
-        Animations::AnimationState &state = animations.state;
+        auto &state = animations.animationStates[animations.currentAnimationIndex];
         HelperFunctions &helperFunctions = animations.helperFunctions;
         struct Sparkle
         {
@@ -386,12 +386,13 @@ namespace AdvancedAnimations
         };
 
         static std::vector<Sparkle> activeSparkles;
+        const int numLeds = animations.strip.numPixels();
 
         // Randomly add a new sparkle if under the maximum
         if (activeSparkles.size() < 10 && random(1, 20) == 1)
         { // Adjust probability as needed
             Sparkle newSparkle;
-            newSparkle.ledIndex = random(0, strip.numPixels());
+            newSparkle.ledIndex = random(0, numLeds);
             newSparkle.brightness = 0.0;
             newSparkle.fadeDirection = 1;
             activeSparkles.push_back(newSparkle);
@@ -428,5 +429,4 @@ namespace AdvancedAnimations
         strip.show();
         delay(wait);
     }
-
 }

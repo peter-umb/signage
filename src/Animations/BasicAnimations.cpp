@@ -3,10 +3,11 @@
 
 namespace BasicAnimations
 {
-  void colorWipe(Animations &animations, uint32_t color, uint8_t wait)
+  void colorWipe(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto color = animations.currentColor;
 
     if (state.pos < strip.numPixels())
     {
@@ -21,16 +22,18 @@ namespace BasicAnimations
     }
   }
 
-  void theaterChase(Animations &animations, uint32_t color, uint8_t wait)
+  void theaterChase(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto color = animations.currentColor;
+    int numPixels = strip.numPixels();
 
     if (state.cycle < 10)
     {
       for (int q = 0; q < 3; q++)
       {
-        for (int i = 0; i < strip.numPixels(); i += 3)
+        for (int i = 0; i < numPixels; i += 3)
         {
           strip.setPixelColor(i + q, state.step % 3 == q ? color : 0);
         }
@@ -38,8 +41,7 @@ namespace BasicAnimations
       strip.show();
       delay(wait);
       state.step++;
-      if (state.step % 3 == 0)
-        state.cycle++;
+      if (state.step % 3 == 0) state.cycle++;
     }
     else
     {
@@ -48,11 +50,13 @@ namespace BasicAnimations
     }
   }
 
-  void flash(Animations &animations, uint32_t color, uint8_t flashes, uint8_t wait)
+  void flash(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
-    HelperFunctions &helperFunctions = animations.helperFunctions;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto &helperFunctions = animations.helperFunctions;
+    auto color = animations.currentColor;
+    const uint8_t flashes = 3;
 
     if (state.cycle < flashes)
     {
@@ -67,12 +71,13 @@ namespace BasicAnimations
     }
   }
 
-  // Twinkle Animation
-  void twinkle(Animations &animations, uint32_t color, uint8_t count, uint8_t wait)
+  void twinkle(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
-    HelperFunctions &helperFunctions = animations.helperFunctions;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto color = animations.currentColor;
+    const uint8_t count = 5;
+
     if (state.step < count)
     {
       int pixel = random(strip.numPixels());
@@ -88,16 +93,21 @@ namespace BasicAnimations
     }
   }
 
-  void runningLights(Animations &animations, uint32_t color, uint8_t wait)
+  void runningLights(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
-    HelperFunctions &helperFunctions = animations.helperFunctions;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto color = animations.currentColor;
+    int numPixels = strip.numPixels();
+
     if (state.step < 256 * 2)
     {
-      for (int i = 0; i < strip.numPixels(); i++)
+      for (int i = 0; i < numPixels; i++)
       {
-        strip.setPixelColor(i, ((sin(i + state.step) * 127 + 128) / 255) * color);
+        uint8_t brightness = (sin((i + state.step) * 0.1) * 127 + 128); // Adjusted speed for smoother effect
+        strip.setPixelColor(i, strip.Color((color >> 16) * brightness / 255, 
+                                           (color >> 8 & 0xFF) * brightness / 255, 
+                                           (color & 0xFF) * brightness / 255));
       }
       strip.show();
       delay(wait);
@@ -109,10 +119,12 @@ namespace BasicAnimations
     }
   }
 
-  void colorChase(Animations &animations, uint32_t color, uint8_t wait)
+  void colorChase(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    auto color = animations.currentColor;
+
     if (state.pos < strip.numPixels())
     {
       strip.setPixelColor(state.pos, color);
@@ -129,30 +141,30 @@ namespace BasicAnimations
 
   void wave(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
-    HelperFunctions &helperFunctions = animations.helperFunctions;
-    static uint16_t waveOffset = 0;
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    int numPixels = strip.numPixels();
 
-    for (int i = 0; i < strip.numPixels(); i++)
+    for (int i = 0; i < numPixels; i++)
     {
-      uint8_t brightness = (sin((i + waveOffset) * 0.2) * 127) + 128;   // Adjust wave speed with multiplier
+      uint8_t brightness = (sin((i + state.step) * 0.2) * 127) + 128;
       strip.setPixelColor(i, strip.Color(brightness, brightness, 255)); // Adjust color as needed
     }
 
-    waveOffset += 1; // Control wave speed
+    state.step += 1;
     strip.show();
     delay(wait);
   }
 
-  void sparkle(Animations &animations, uint32_t color, uint8_t wait)
+  void sparkle(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    Animations::AnimationState &state = animations.state;
-    HelperFunctions &helperFunctions = animations.helperFunctions;
+    auto &strip = animations.strip;
+    auto color = animations.currentColor;
+    int numPixels = strip.numPixels();
+
     for (int i = 0; i < 3; i++)
     {
-      int pixel = random(0, strip.numPixels());
+      int pixel = random(numPixels);
       strip.setPixelColor(pixel, color); // Set random LED to color
       strip.show();
       delay(wait);
@@ -163,14 +175,31 @@ namespace BasicAnimations
 
   void gradientSweep(Animations &animations, uint8_t wait)
   {
-    Adafruit_NeoPixel &strip = animations.strip;
-    static uint16_t hue = 0;
-    for (int i = 0; i < strip.numPixels(); i++)
+    auto &strip = animations.strip;
+    auto &state = animations.animationStates[animations.currentAnimationIndex];
+    int numPixels = strip.numPixels();
+
+    for (int i = 0; i < numPixels; i++)
     {
-      strip.setPixelColor(i, strip.ColorHSV((hue + (i * 65536L / strip.numPixels())) % 65536, 255, 255));
+      strip.setPixelColor(i, strip.ColorHSV((state.step + (i * 65536L / numPixels)) % 65536, 255, 255));
     }
-    hue += 256; // Change this for speed of color change
+    state.step += 256; // Change this for speed of color change
     strip.show();
     delay(wait);
   }
+
+  void solidColor(Animations& animations, uint8_t wait)
+    {
+        auto &strip = animations.strip;
+        uint32_t color = animations.currentColor;
+
+        for (int i = 0; i < strip.numPixels(); i++)
+        {
+            strip.setPixelColor(i, color); // Set each LED to the current color
+        }
+        strip.show();
+
+        // Delay to simulate wait time if needed
+        delay(wait);
+    }
 }
